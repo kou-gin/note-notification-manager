@@ -259,3 +259,56 @@ function setTrigger() {
 
   Logger.log("トリガーを設定しました：1時間ごとにrunSyncを実行");
 }
+
+// ===== 既存データのURL修正 =====
+function fixExistingUrls() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(MAIN_SHEET_NAME);
+  if (!sheet) {
+    Logger.log("シートが見つかりません: " + MAIN_SHEET_NAME);
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("対象データなし");
+    return;
+  }
+
+  var articlePattern = /(https:\/\/note\.com\/[^\/]+\/n\/[a-z0-9]+)/;
+  var followPattern  = /(https:\/\/note\.com\/[^?\/\s]+)/;
+
+  var urlRange = sheet.getRange(2, 6, lastRow - 1, 1);
+  var values   = urlRange.getValues();
+  var updated  = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    var original = String(values[i][0] || "").trim();
+    if (!original) continue;
+
+    var fixed = "";
+    var match;
+
+    if (original.indexOf("/n/") !== -1) {
+      // スキ系：記事URL
+      match = original.match(articlePattern);
+      if (match) fixed = match[1];
+    } else {
+      // フォロー系：ユーザーページURL
+      match = original.match(followPattern);
+      if (match) fixed = match[1];
+    }
+
+    if (fixed && fixed !== original) {
+      values[i][0] = fixed;
+      updated++;
+    }
+  }
+
+  if (updated > 0) {
+    urlRange.setValues(values);
+    Logger.log(updated + "件のURLを修正しました");
+  } else {
+    Logger.log("修正対象なし");
+  }
+}
