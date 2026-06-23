@@ -148,11 +148,8 @@ function parseMessage(msg, existingUrls) {
 }
 
 // ===== noteURL抽出（相手のユーザーページURL） =====
-var OWN_ACCOUNTS = [
-  "gin_ainote", "kou_gi_io",
-  "unsubscribe_mails",
-  "n", "tags", "search", "login", "signup", "contact"
-];
+var OWN_ACCOUNTS = ["gin_ainote", "kou_gi_io", "unsubscribe_mails",
+  "n", "tags", "search", "login", "signup", "contact"];
 
 function extractNoteUrl(body) {
   // ユーザーページURL: https://note.com/[username]（/n/ を含まないもの）
