@@ -242,9 +242,7 @@ function getData() {
 
   return values.map(function(row) {
     return {
-      date:    row[0] ? (row[0] instanceof Date
-               ? Utilities.formatDate(row[0], "Asia/Tokyo", "yyyy-MM-dd HH:mm")
-               : String(row[0]).substring(0, 16)) : "",
+      date:    row[0] ? String(row[0]).substring(0, 16) : "",
       type:    row[1],
       name:    row[2],
       account: row[3],
