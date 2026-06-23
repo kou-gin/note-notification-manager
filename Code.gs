@@ -141,29 +141,39 @@ function parseMessage(msg, existingUrls) {
   var senderName = extractSenderName(subject, type);
   var articleTitle = (type === "スキ") ? extractArticleTitle(subject) : "";
 
-  // 受信日時
-  var date = msg.getDate();
+  // 受信日時（JST = UTC+9 に変換）
+  var jstDate = new Date(msg.getDate().getTime() + 9 * 60 * 60 * 1000);
 
-  return [date, type, senderName, articleTitle, account, noteUrl, "未対応"];
+  return [jstDate, type, senderName, articleTitle, account, noteUrl, "未対応"];
 }
 
 // ===== noteURL抽出 =====
 function extractNoteUrl(body) {
   var notePattern = /(https:\/\/note\.com\/[^\/]+\/n\/[a-z0-9]+)/;
+  var candidates = [];
+  var i, match;
 
-  // エンコードされたURLを先に探してデコード
-  var encoded = body.match(/https?:\/\/[^"'\s]*note\.com%2F[^"'\s&]*/);
-  if (encoded) {
-    try {
-      var decoded = decodeURIComponent(encoded[0]);
-      var match = decoded.match(notePattern);
-      if (match) return match[1];
-    } catch (e) {}
+  // エンコードされたURLを収集してデコード
+  var encodedFound = body.match(/https?:\/\/[^"'\s]*note\.com%2F[^"'\s]*/g);
+  if (encodedFound) {
+    for (i = 0; i < encodedFound.length; i++) {
+      try { candidates.push(decodeURIComponent(encodedFound[i])); } catch (e) {}
+    }
   }
 
-  // デコード済みURLを直接探す
-  var direct = body.match(notePattern);
-  if (direct) return direct[1];
+  // デコード済みnote.com URLを直接収集
+  var directFound = body.match(/https?:\/\/note\.com\/[^\s"'<>]*/g);
+  if (directFound) {
+    for (i = 0; i < directFound.length; i++) {
+      candidates.push(directFound[i]);
+    }
+  }
+
+  // 全候補にnotePatternを適用し、マッチした部分のみ返す
+  for (i = 0; i < candidates.length; i++) {
+    match = candidates[i].match(notePattern);
+    if (match) return match[1];
+  }
 
   return null;
 }
