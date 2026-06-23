@@ -87,6 +87,7 @@ function runSync() {
   if (newRows.length > 0) {
     var lastRow = mainSheet.getLastRow();
     mainSheet.getRange(lastRow + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
+    mainSheet.getRange(lastRow + 1, 1, newRows.length, 1).setNumberFormat("@STRING@");
   }
 
   // _metaシートに現在時刻を保存
@@ -242,7 +243,14 @@ function getData() {
 
   return values.map(function(row) {
     return {
-      date:    row[0] ? String(row[0]).substring(0, 16) : "",
+      date:    (function() {
+        if (!row[0]) return "";
+        try {
+          return Utilities.formatDate(new Date(row[0]), "Asia/Tokyo", "yyyy-MM-dd HH:mm");
+        } catch(e) {
+          return String(row[0]).substring(0, 16);
+        }
+      })(),
       type:    row[1],
       name:    row[2],
       account: row[3],
