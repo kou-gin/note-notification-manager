@@ -142,14 +142,14 @@ function parseMessage(msg, existingUrls) {
 
   // 受信日時をJST文字列に変換して保存
   var rawDate = msg.getDate();
-  var jstDate = Utilities.formatDate(rawDate, "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
+  var jstDate = Utilities.formatDate(rawDate, "Asia/Tokyo", "yyyy-MM-dd HH:mm");
 
   return [jstDate, type, senderName, account, noteUrl, "未対応"];
 }
 
 // ===== noteURL抽出（相手のユーザーページURL） =====
 var OWN_ACCOUNTS = ["gin_ainote", "kou_gi_io", "unsubscribe_mails",
-  "n", "tags", "search", "login", "signup", "contact"];
+  "record", "n", "tags", "search", "login", "signup", "contact"];
 
 function extractNoteUrl(body) {
   // ユーザーページURL: https://note.com/[username]（/n/ を含まないもの）
