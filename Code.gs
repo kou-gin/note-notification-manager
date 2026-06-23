@@ -1,6 +1,6 @@
 // ===== 定数定義 =====
 var SPREADSHEET_ID = "1xlMXt4nKDxmWaWw1FX40wNOIL7YimOnT_1WvNmv3jLM";
-var MAIN_SHEET_NAME = "Sheet1";
+var MAIN_SHEET_NAME = "通知一覧";
 var META_SHEET_NAME = "_meta";
 var GIN_EMAIL = "kou.ainote@gmail.com";
 var KOU_EMAIL = "sung.ksg@gmail.com";
@@ -138,20 +138,21 @@ function parseMessage(msg, existingUrls) {
 
 // ===== noteURL抽出 =====
 function extractNoteUrl(body) {
-  // note.com%2F を含むURLを探す
+  var notePattern = /(https:\/\/note\.com\/[^\/]+\/n\/[a-z0-9]+)/;
+
+  // エンコードされたURLを先に探してデコード
   var encoded = body.match(/https?:\/\/[^"'\s]*note\.com%2F[^"'\s&]*/);
   if (encoded) {
     try {
       var decoded = decodeURIComponent(encoded[0]);
-      // note.com/... の形式に整形
-      var match = decoded.match(/(https?:\/\/note\.com\/[^\s"'<>]+)/);
+      var match = decoded.match(notePattern);
       if (match) return match[1];
     } catch (e) {}
   }
 
   // デコード済みURLを直接探す
-  var direct = body.match(/https?:\/\/note\.com\/[^\s"'<>&]+/);
-  if (direct) return direct[0];
+  var direct = body.match(notePattern);
+  if (direct) return direct[1];
 
   return null;
 }
