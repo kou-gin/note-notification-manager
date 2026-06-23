@@ -223,7 +223,7 @@
 
 <script>
   // ===== 定数 =====
-  var GAS_URL = "https://script.google.com/macros/s/AKfycbz8dB1wQ4aY7Ysm19fflcFaKViqq7T_a4MBWyEfQs5K3cYQOleRT1ynj2i7Y6YDIhn9ow/exechttps://script.google.com/macros/library/d/1lzHLrl67inR0yNfdkvJCug_3toJquMJLZxSwUjaXQi5lP5LUMVKM4sDz/2https://script.google.com/macros/s/AKfycbz8dB1wQ4aY7Ysm19fflcFaKViqq7T_a4MBWyEfQs5K3cYQOleRT1ynj2i7Y6YDIhn9ow/exec";
+  var GAS_URL = "https://script.google.com/macros/s/AKfycbz8dB1wQ4aY7Ysm19fflcFaKViqq7T_a4MBWyEfQs5K3cYQOleRT1ynj2i7Y6YDIhn9ow/exec";
 
   // ===== 状態 =====
   var allData = [];
@@ -238,28 +238,51 @@
     document.getElementById("filterStatus").addEventListener("change", renderTable);
   });
 
+  // ===== JSONPリクエスト共通処理 =====
+  function jsonpRequest(url, onSuccess, onError) {
+    var cbName = "jsonpCb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+    var script = document.createElement("script");
+
+    var cleanup = function() {
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+
+    window[cbName] = function(data) {
+      cleanup();
+      onSuccess(data);
+    };
+
+    script.onerror = function() {
+      cleanup();
+      onError(new Error("JSONPリクエストに失敗しました"));
+    };
+
+    script.src = url + (url.indexOf("?") !== -1 ? "&" : "?") + "callback=" + cbName;
+    document.body.appendChild(script);
+  }
+
   // ===== データ取得 =====
   function fetchData() {
     setLog("データを取得中...", "");
 
-    fetch(GAS_URL + "?action=getData")
-      .then(function(res) {
-        if (!res.ok) throw new Error("HTTPエラー: " + res.status);
-        return res.json();
-      })
-      .then(function(json) {
+    jsonpRequest(
+      GAS_URL + "?action=getData",
+      function(json) {
         if (json.status === "ok") {
           allData = json.data || [];
           renderTable();
           setLog("データを取得しました（" + allData.length + "件）", "success");
         } else {
-          throw new Error(json.message || "不明なエラー");
+          setLog("エラー: " + (json.message || "不明なエラー"), "error");
+          renderTable();
         }
-      })
-      .catch(function(err) {
+      },
+      function(err) {
         setLog("データ取得エラー: " + err.message, "error");
         renderTable();
-      });
+      }
+    );
   }
 
   // ===== 同期実行 =====
@@ -268,26 +291,23 @@
     btn.disabled = true;
     setLog("同期中...", "");
 
-    fetch(GAS_URL + "?action=run")
-      .then(function(res) {
-        if (!res.ok) throw new Error("HTTPエラー: " + res.status);
-        return res.json();
-      })
-      .then(function(json) {
+    jsonpRequest(
+      GAS_URL + "?action=run",
+      function(json) {
+        btn.disabled = false;
         if (json.status === "ok") {
           var now = new Date().toLocaleTimeString("ja-JP");
           setLog("[" + now + "] " + json.message, "success");
           fetchData();
         } else {
-          throw new Error(json.message || "不明なエラー");
+          setLog("エラー: " + (json.message || "不明なエラー"), "error");
         }
-      })
-      .catch(function(err) {
-        setLog("同期エラー: " + err.message, "error");
-      })
-      .finally(function() {
+      },
+      function(err) {
         btn.disabled = false;
-      });
+        setLog("同期エラー: " + err.message, "error");
+      }
+    );
   }
 
   // ===== テーブル描画 =====

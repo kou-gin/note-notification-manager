@@ -7,7 +7,8 @@ var KOU_EMAIL = "sung.ksg@gmail.com";
 
 // ===== doGet エントリーポイント =====
 function doGet(e) {
-  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "";
+  var action   = (e && e.parameter && e.parameter.action)   ? e.parameter.action   : "";
+  var callback = (e && e.parameter && e.parameter.callback) ? e.parameter.callback : "";
   var result;
 
   try {
@@ -22,7 +23,17 @@ function doGet(e) {
     result = { status: "error", message: err.message };
   }
 
-  var output = ContentService.createTextOutput(JSON.stringify(result));
+  var json = JSON.stringify(result);
+
+  if (callback) {
+    // JSONP形式で返却
+    var output = ContentService.createTextOutput(callback + "(" + json + ")");
+    output.setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return output;
+  }
+
+  // callbackなしの場合はJSON
+  var output = ContentService.createTextOutput(json);
   output.setMimeType(ContentService.MimeType.JSON);
   return output;
 }
