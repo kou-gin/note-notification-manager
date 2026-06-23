@@ -206,14 +206,13 @@
             <th>日付</th>
             <th>種別</th>
             <th>相手の名前</th>
-            <th>記事タイトル</th>
             <th>対象アカウント</th>
-            <th>noteURL</th>
+            <th>相手のnoteURL</th>
             <th>対応有無</th>
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr><td colspan="7" class="empty-msg">データを読み込んでいます...</td></tr>
+          <tr><td colspan="6" class="empty-msg">データを読み込んでいます...</td></tr>
         </tbody>
       </table>
     </div>
@@ -348,7 +347,6 @@
         + '<td>' + escapeHtml(row.date)    + '</td>'
         + '<td>' + typeBadge               + '</td>'
         + '<td>' + escapeHtml(row.name)    + '</td>'
-        + '<td>' + escapeHtml(row.title)   + '</td>'
         + '<td>' + escapeHtml(row.account) + '</td>'
         + '<td>' + urlCell                 + '</td>'
         + '<td>' + statusBadge             + '</td>'

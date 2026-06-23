@@ -137,21 +137,23 @@ function parseMessage(msg, existingUrls) {
     return null;
   }
 
-  // 件名から相手名・記事タイトルを抽出
+  // 件名から相手名を抽出
   var senderName = extractSenderName(subject, type);
-  var articleTitle = (type === "スキ") ? extractArticleTitle(subject) : "";
 
-  // 受信日時（JST = UTC+9 に変換）
-  var jstDate = new Date(msg.getDate().getTime() + 9 * 60 * 60 * 1000);
+  // 受信日時（GASのタイムゾーンがAsia/Tokyoのため変換不要）
+  var jstDate = msg.getDate();
 
-  return [jstDate, type, senderName, articleTitle, account, noteUrl, "未対応"];
+  return [jstDate, type, senderName, account, noteUrl, "未対応"];
 }
 
-// ===== noteURL抽出 =====
+// ===== noteURL抽出（相手のユーザーページURL） =====
+var OWN_ACCOUNTS = ["gin_ainote", "kou_gi_io"];
+
 function extractNoteUrl(body) {
-  var notePattern = /(https:\/\/note\.com\/[^\/]+\/n\/[a-z0-9]+)/;
+  // ユーザーページURL: https://note.com/[username]（/n/ を含まないもの）
+  var userPagePattern = /https:\/\/note\.com\/([^\/\s"'<>?#]+)/g;
   var candidates = [];
-  var i, match;
+  var i, m;
 
   // エンコードされたURLを収集してデコード
   var encodedFound = body.match(/https?:\/\/[^"'\s]*note\.com%2F[^"'\s]*/g);
@@ -169,10 +171,19 @@ function extractNoteUrl(body) {
     }
   }
 
-  // 全候補にnotePatternを適用し、マッチした部分のみ返す
+  // 全候補からユーザーページURLを抽出し、自分のアカウントを除外
   for (i = 0; i < candidates.length; i++) {
-    match = candidates[i].match(notePattern);
-    if (match) return match[1];
+    userPagePattern.lastIndex = 0;
+    m = userPagePattern.exec(candidates[i]);
+    if (!m) continue;
+
+    var username = m[1];
+    // /n/ で始まる（記事パス）はスキップ
+    if (username === "n") continue;
+    // 自分のアカウントはスキップ
+    if (OWN_ACCOUNTS.indexOf(username) !== -1) continue;
+
+    return "https://note.com/" + username;
   }
 
   return null;
@@ -207,8 +218,8 @@ function getExistingUrls(sheet) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return urls;
 
-  // F列（6列目）がnoteURL
-  var values = sheet.getRange(2, 6, lastRow - 1, 1).getValues();
+  // E列（5列目）がnoteURL
+  var values = sheet.getRange(2, 5, lastRow - 1, 1).getValues();
   for (var i = 0; i < values.length; i++) {
     if (values[i][0]) {
       urls[values[i][0]] = true;
@@ -226,18 +237,17 @@ function getData() {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  var lastCol = 7; // A〜G列
+  var lastCol = 6; // A〜F列
   var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
   return values.map(function(row) {
     return {
-      date: row[0] ? Utilities.formatDate(new Date(row[0]), "Asia/Tokyo", "yyyy-MM-dd HH:mm") : "",
-      type: row[1],
-      name: row[2],
-      title: row[3],
-      account: row[4],
-      url: row[5],
-      status: row[6]
+      date:    row[0] ? Utilities.formatDate(new Date(row[0]), "Asia/Tokyo", "yyyy-MM-dd HH:mm") : "",
+      type:    row[1],
+      name:    row[2],
+      account: row[3],
+      url:     row[4],
+      status:  row[5]
     };
   });
 }
@@ -275,31 +285,30 @@ function fixExistingUrls() {
     return;
   }
 
-  var articlePattern = /(https:\/\/note\.com\/[^\/]+\/n\/[a-z0-9]+)/;
-  var followPattern  = /(https:\/\/note\.com\/[^?\/\s]+)/;
+  // ユーザーページURL形式: https://note.com/[username]
+  var userPagePattern = /https:\/\/note\.com\/([^\/?\s"'<>#]+)/;
 
   var urlRange = sheet.getRange(2, 6, lastRow - 1, 1);
   var values   = urlRange.getValues();
   var updated  = 0;
+  var skipped  = 0;
 
   for (var i = 0; i < values.length; i++) {
     var original = String(values[i][0] || "").trim();
     if (!original) continue;
 
-    var fixed = "";
-    var match;
-
+    // /n/ を含む場合はメール本文がないため変換不可→スキップ
     if (original.indexOf("/n/") !== -1) {
-      // スキ系：記事URL
-      match = original.match(articlePattern);
-      if (match) fixed = match[1];
-    } else {
-      // フォロー系：ユーザーページURL
-      match = original.match(followPattern);
-      if (match) fixed = match[1];
+      skipped++;
+      continue;
     }
 
-    if (fixed && fixed !== original) {
+    // /n/ を含まない場合はユーザーページURLに切り詰める
+    var match = original.match(userPagePattern);
+    if (!match) continue;
+
+    var fixed = "https://note.com/" + match[1];
+    if (fixed !== original) {
       values[i][0] = fixed;
       updated++;
     }
@@ -307,8 +316,6 @@ function fixExistingUrls() {
 
   if (updated > 0) {
     urlRange.setValues(values);
-    Logger.log(updated + "件のURLを修正しました");
-  } else {
-    Logger.log("修正対象なし");
   }
+  Logger.log(updated + "件修正、" + skipped + "件スキップ（/n/ 含む）");
 }
