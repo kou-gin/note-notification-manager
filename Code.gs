@@ -140,14 +140,19 @@ function parseMessage(msg, existingUrls) {
   // 件名から相手名を抽出
   var senderName = extractSenderName(subject, type);
 
-  // 受信日時（GASのタイムゾーンがAsia/Tokyoのため変換不要）
-  var jstDate = msg.getDate();
+  // 受信日時をJST文字列に変換して保存
+  var rawDate = msg.getDate();
+  var jstDate = Utilities.formatDate(rawDate, "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
 
   return [jstDate, type, senderName, account, noteUrl, "未対応"];
 }
 
 // ===== noteURL抽出（相手のユーザーページURL） =====
-var OWN_ACCOUNTS = ["gin_ainote", "kou_gi_io"];
+var OWN_ACCOUNTS = [
+  "gin_ainote", "kou_gi_io",
+  "unsubscribe_mails",
+  "n", "tags", "search", "login", "signup", "contact"
+];
 
 function extractNoteUrl(body) {
   // ユーザーページURL: https://note.com/[username]（/n/ を含まないもの）
@@ -178,9 +183,7 @@ function extractNoteUrl(body) {
     if (!m) continue;
 
     var username = m[1];
-    // /n/ で始まる（記事パス）はスキップ
-    if (username === "n") continue;
-    // 自分のアカウントはスキップ
+    // 自分のアカウント・システムパスはスキップ
     if (OWN_ACCOUNTS.indexOf(username) !== -1) continue;
 
     return "https://note.com/" + username;
@@ -242,7 +245,9 @@ function getData() {
 
   return values.map(function(row) {
     return {
-      date:    row[0] ? Utilities.formatDate(new Date(row[0]), "Asia/Tokyo", "yyyy-MM-dd HH:mm") : "",
+      date:    row[0] ? (row[0] instanceof Date
+               ? Utilities.formatDate(row[0], "Asia/Tokyo", "yyyy-MM-dd HH:mm")
+               : String(row[0]).substring(0, 16)) : "",
       type:    row[1],
       name:    row[2],
       account: row[3],
