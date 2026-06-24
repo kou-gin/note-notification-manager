@@ -57,9 +57,9 @@ function runSync() {
     startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   }
 
-  // Gmail検索（UNIXタイム秒）
-  var afterUnix = Math.floor(startDate.getTime() / 1000);
-  var query = "from:noreply@note.com after:" + afterUnix;
+  // Gmail検索（_metaの日付をそのまま使用）
+  var afterStr = Utilities.formatDate(startDate, "Asia/Tokyo", "yyyy/MM/dd");
+  var query = "from:noreply@note.com after:" + afterStr;
   var threads = GmailApp.search(query);
 
   // メインシートの既存データ取得（重複チェック用）
@@ -78,16 +78,18 @@ function runSync() {
       var row = parseMessage(msg, existingUrls);
       if (row) {
         newRows.push(row);
-        existingUrls[row[5]] = true; // F列のnoteURL
+        if (row[1] === "フォロー") {
+          existingUrls[row[4]] = true; // E列のnoteURL（フォローのみ重複チェック）
+        }
       }
     }
   }
 
-  // 新規行を追記
+  // 新規行を先頭（2行目）に挿入（最新が上になるよう）
   if (newRows.length > 0) {
-    var lastRow = mainSheet.getLastRow();
-    mainSheet.getRange(lastRow + 1, 1, newRows.length, newRows[0].length).setValues(newRows);
-    mainSheet.getRange(lastRow + 1, 1, newRows.length, 1).setNumberFormat("@STRING@");
+    mainSheet.insertRowsAfter(1, newRows.length);
+    mainSheet.getRange(2, 1, newRows.length, newRows[0].length).setValues(newRows);
+    mainSheet.getRange(2, 1, newRows.length, 1).setNumberFormat("@STRING@");
   }
 
   // _metaシートに現在時刻を保存
@@ -116,11 +118,7 @@ function parseMessage(msg, existingUrls) {
   if (to.indexOf(GIN_EMAIL) !== -1) {
     account = "Gin";
   } else if (to.indexOf(KOU_EMAIL) !== -1) {
-    if (subject.indexOf("KOU") !== -1) {
-      account = "KOU";
-    } else {
-      account = KOU_EMAIL;
-    }
+    account = "KOU";
   } else {
     // Toが取得できない場合はスキップ
     return null;
@@ -133,8 +131,8 @@ function parseMessage(msg, existingUrls) {
     return null;
   }
 
-  // 重複チェック
-  if (existingUrls[noteUrl]) {
+  // 重複チェック（フォローのみ。スキは同じ人から複数回くる可能性があるため除外）
+  if (type === "フォロー" && existingUrls[noteUrl]) {
     return null;
   }
 
@@ -277,6 +275,38 @@ function setTrigger() {
 
   Logger.log("トリガーを設定しました：1時間ごとにrunSyncを実行");
 }
+
+// ===== デバック =====
+function debugQuery() {
+  var threads1 = GmailApp.search("from:noreply@note.com");
+  Logger.log("from検索件数: " + threads1.length);
+  
+  var threads2 = GmailApp.search("label:1.在宅work-note");
+  Logger.log("label検索件数: " + threads2.length);
+}
+
+// ===== デバック2 =====
+function debugQuery2() {
+  var metaSheet = SpreadsheetApp.openById("1xlMXt4nKDxmWaWw1FX40wNOIL7YimOnT_1WvNmv3jLM").getSheetByName("_meta");
+  var lastRunValue = metaSheet.getRange("A1").getValue();
+  Logger.log("_meta値: " + lastRunValue);
+  
+  var startDate = new Date(lastRunValue);
+  Logger.log("startDate: " + startDate);
+  
+  var searchDate = new Date(startDate.getTime() - 24 * 60 * 60 * 1000);
+  Logger.log("searchDate: " + searchDate);
+  
+  var afterStr = Utilities.formatDate(searchDate, "Asia/Tokyo", "yyyy/MM/dd");
+  Logger.log("afterStr: " + afterStr);
+  
+  var query = "from:noreply@note.com after:" + afterStr;
+  Logger.log("query: " + query);
+  
+  var threads = GmailApp.search(query);
+  Logger.log("件数: " + threads.length);
+}
+
 
 // ===== 既存データのURL修正 =====
 function fixExistingUrls() {
